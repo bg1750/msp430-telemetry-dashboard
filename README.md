@@ -45,18 +45,39 @@ The alarm path is deliberately exercised: the simulator injects rare spikes so y
 | JavaScript | State machine, alarm logic, telemetry simulator |
 | Canvas API | Custom strip chart (no libraries) |
 
-No frameworks, no build step. Open `index.html` and press **Start**.
+No frameworks, no build step. The scripts load as ES modules, so serve the folder and press **Start**:
+
+```
+npx http-server -c-1 .      # then visit the printed localhost URL
+```
+
+---
+
+## Testing
+
+| Layer | Tool | Command |
+|---|---|---|
+| Unit | Vitest | `npm test` |
+| e2e + accessibility | Playwright + axe-core | `npm run test:e2e` |
+
+The unit suite covers the two pieces of logic worth locking down: the **alarm state machine** (nominal / near-limit / high / low, including exact-threshold behaviour) and the **telemetry framing** (sequence numbers, decimal precision per sensor, and range clamping over 500 samples). The e2e suite starts a stream and asserts the reading and event log update, then runs axe against the page. CI runs the unit suite on every push.
+
+> First e2e run only: `npx playwright install`.
 
 ---
 
 ## Files
 
 ```
-index.html          layout
-css/styles.css      operator-console theme
-js/simulator.js     telemetry source (stands in for firmware + host)
-js/chart.js         Canvas strip chart with threshold bands
-js/app.js           loop, alarm state machine, rendering
+index.html              layout
+css/styles.css          operator-console theme
+js/simulator.js         telemetry source, framing (pure, tested)
+js/alarm.js             alarm state machine (pure, tested)
+js/chart.js             Canvas strip chart with threshold bands
+js/app.js               loop and rendering
+tests/alarm.test.js     Vitest — alarm logic
+tests/simulator.test.js Vitest — framing & clamping
+tests/e2e/dashboard.spec.js  Playwright + axe
 ```
 
 ## Next
