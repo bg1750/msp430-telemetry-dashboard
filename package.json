@@ -1,0 +1,18 @@
+{
+  "name": "msp430-telemetry-dashboard",
+  "version": "1.0.0",
+  "description": "Live operator dashboard for a low-power sensor node, with a telemetry simulator.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "author": "Isabella Gallo",
+  "license": "MIT",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.0",
+    "vitest": "^2.1.0"
+  }
+}
