@@ -9,14 +9,16 @@ import { evaluateAlarm } from "./alarm.js";
 
   const MAX_POINTS = 120;
   const INTERVAL = 500; // ms between readings
+  const HOST_WS = "ws://localhost:8000/ws"; // Python host (see host/README.md)
 
   const SENSOR_TITLES = { temp: "Temperature", light: "Light", voltage: "Supply voltage" };
 
   const chart = StripChart($("chart"));
 
-  let mode = "live";       // "live" | "replay"
+  let mode = "live";       // "device" | "live" | "replay"
   let running = false;
   let timer = null;
+  let ws = null;
   let data = [];
   let sim = null;
   let replayBuf = [];
@@ -44,20 +46,28 @@ import { evaluateAlarm } from "./alarm.js";
   }
 
   /* ---- Loop ---- */
-  function tick() {
-    const r = nextReading();
+  // Single entry point for a reading, whatever the source.
+  function handleReading(r) {
     data.push(r);
     if (data.length > MAX_POINTS) data.shift();
     render(r);
   }
 
+  function tick() { handleReading(nextReading()); }
+
   function start() {
     if (running) return;
-    if (data.length === 0) resetSource();
     running = true;
-    setConnected(true);
     $("startBtn").disabled = true;
     $("pauseBtn").disabled = false;
+
+    if (mode === "device") {
+      connectDevice(); // readings arrive via WebSocket, not the timer
+      return;
+    }
+
+    if (data.length === 0) resetSource();
+    setConnected(true);
     log("Stream started (" + mode + ", " + SENSOR_TITLES[currentSensor()] + ")", "ok");
     tick();
     timer = setInterval(tick, INTERVAL);
@@ -66,20 +76,47 @@ import { evaluateAlarm } from "./alarm.js";
   function pause() {
     running = false;
     clearInterval(timer);
+    disconnectDevice();
     setConnected(false);
     $("startBtn").disabled = false;
     $("pauseBtn").disabled = true;
     log("Stream paused", "");
   }
 
+  /* ---- Device source (live WebSocket to the Python host) ---- */
+  function connectDevice() {
+    log("Connecting to host " + HOST_WS + " …", "");
+    try {
+      ws = new WebSocket(HOST_WS);
+    } catch (e) {
+      log("Could not open WebSocket — start host.py first", "alarm");
+      return;
+    }
+    ws.onopen = () => { setConnected(true); log("Connected to device host", "ok"); };
+    ws.onmessage = (ev) => {
+      try {
+        const r = JSON.parse(ev.data);
+        if (typeof r.value === "number") handleReading(r);
+      } catch (e) { log("Bad frame from host", "alarm"); }
+    };
+    ws.onerror = () => { log("WebSocket error — is host.py running on :8000?", "alarm"); };
+    ws.onclose = () => { setConnected(false); if (running) log("Host disconnected", ""); };
+  }
+
+  function disconnectDevice() {
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  }
+
   /* ---- Render ---- */
   function render(r) {
-    const unit = SENSORS[currentSensor()].unit;
+    // In device mode the sensor/unit come from the reading itself.
+    const sensorKey = r.sensor || currentSensor();
+    const unit = r.unit || (SENSORS[sensorKey] ? SENSORS[sensorKey].unit : "");
     const values = data.map((d) => d.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const dp = currentSensor() === "voltage" ? 3 : 1;
+    const dp = sensorKey === "voltage" ? 3 : 1;
 
     $("curVal").textContent = r.value.toFixed(dp);
     $("curUnit").textContent = unit;
@@ -152,18 +189,21 @@ import { evaluateAlarm } from "./alarm.js";
     if (wasRunning) start();
   });
 
+  $("deviceBtn").addEventListener("click", () => setMode("device"));
   $("liveBtn").addEventListener("click", () => setMode("live"));
   $("replayBtn").addEventListener("click", () => setMode("replay"));
 
   function setMode(m) {
     if (mode === m) return;
     mode = m;
+    $("deviceBtn").classList.toggle("active", m === "device");
     $("liveBtn").classList.toggle("active", m === "live");
     $("replayBtn").classList.toggle("active", m === "replay");
     const wasRunning = running;
     pause();
-    resetSource();
-    log("Source: " + (m === "live" ? "live simulation" : "recorded replay"), "");
+    if (m !== "device") { resetSource(); lastAlarm = "ok"; }
+    const labels = { device: "device (WebSocket to host)", live: "live simulation", replay: "recorded replay" };
+    log("Source: " + labels[m], "");
     if (wasRunning) start();
   }
 

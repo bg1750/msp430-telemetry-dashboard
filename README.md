@@ -1,21 +1,42 @@
 # MSP430 Telemetry Dashboard
 
-A live operator dashboard for an ultra-low-power sensor node — the browser layer of a firmware → host-service → web pipeline. This repo ships the **front-end** with a built-in telemetry simulator, so it runs and demos with no hardware attached.
+A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams sensor readings, a Python service validates and stores them, and a live web dashboard renders them. It runs end-to-end with the board attached — and still demos with a **built-in simulator** when it isn't.
 
-Built as the "centerpiece" project from my job-search plan: it proves the claim the resume makes — that I can design an operator interface and build it, the same work I do for real instruments, on the web stack.
+Built as the "centerpiece" project from my job-search plan: it proves the claim the resume makes — that I can talk to the hardware team, design the interface, and build the software in between, across all three languages.
 
 ---
 
-## The Pipeline It Represents
+## The Pipeline
 
 ```
-MSP430FR6989          Python host             This dashboard
-C firmware   ─UART→   pyserial + FastAPI  ─WS→  Canvas UI
-(sensor +            (validate, timestamp,      (live chart,
- segment LCD)         SQLite, WebSocket)         alarms, log)
+MSP430FR6989            Python host              This dashboard
+C firmware     ─UART→   pyserial + FastAPI  ─WS→  Canvas UI
+(temp sensor +          (validate checksum,       (live chart,
+ segment LCD)            timestamp, SQLite,        alarms, log)
+                         WebSocket broadcast)
 ```
 
-The `js/simulator.js` module stands in for the firmware + host service. It emits **framed readings** — `{ seq, sensor, unit, value, t }` — the exact shape a real WebSocket feed would forward, so swapping in a live socket later touches one function.
+| Layer | Folder | Language | What it does |
+|---|---|---|---|
+| Firmware | [`firmware/`](firmware/) | C | Reads the internal temp sensor, drives the segment LCD, streams framed readings over UART. Sleeps in LPM3. |
+| Host | [`host/`](host/) | Python | `pyserial` reads frames, validates the checksum, stores to SQLite, serves a FastAPI WebSocket. |
+| Dashboard | `js/`, `index.html` | JavaScript | Subscribes to the WebSocket; Canvas chart, alarm logic, event log. |
+
+The wire format between firmware and host is documented in [PROTOCOL.md](PROTOCOL.md).
+
+### Three sources
+
+The dashboard has three data-source buttons:
+
+- **Device** — connects to the Python host over WebSocket (`ws://localhost:8000/ws`) for the real hardware stream.
+- **Live (simulated)** — `js/simulator.js` generates a random-walk sensor, so the front-end runs with no board or host.
+- **Replay** — plays a recorded run so a demo repeats identically.
+
+### Run the full pipeline
+
+1. Flash the firmware — see [firmware/README.md](firmware/README.md).
+2. Start the host — `cd host && python host.py --port COM5` (or `--sim` for no hardware). See [host/README.md](host/README.md).
+3. Serve the dashboard — `npx http-server -c-1 .` — click **Device** → **Start**.
 
 ---
 
@@ -40,12 +61,13 @@ The alarm path is deliberately exercised: the simulator injects rare spikes so y
 
 | Technology | Role |
 |---|---|
-| HTML5 | Structure |
-| CSS3 | Dark operator-console styling, responsive layout |
-| JavaScript | State machine, alarm logic, telemetry simulator |
+| C (MSP430) | Firmware: sensor sampling, LCD, UART, low-power modes |
+| Python | Host: pyserial, FastAPI, WebSocket, SQLite |
+| HTML5 / CSS3 | Dashboard structure and dark operator-console styling |
+| JavaScript | State machine, alarm logic, WebSocket client, simulator |
 | Canvas API | Custom strip chart (no libraries) |
 
-No frameworks, no build step. The scripts load as ES modules, so serve the folder and press **Start**:
+The dashboard has no frameworks or build step. Its scripts load as ES modules, so serve the folder and press **Start**:
 
 ```
 npx http-server -c-1 .      # then visit the printed localhost URL
@@ -66,25 +88,28 @@ The unit suite covers the two pieces of logic worth locking down: the **alarm st
 
 ---
 
+The unit suite covers the JavaScript logic. The **Python** frame parser has its own tests: `cd host && pytest test_host.py` (good frame, corrupted checksum, unknown tag, partial line).
+
 ## Files
 
 ```
-index.html              layout
+firmware/               MSP430 C firmware (main.c, hal_LCD, Makefile, README)
+host/                   Python host (host.py, protocol.py, tests, README)
+PROTOCOL.md             the firmware↔host wire format
+index.html              dashboard layout
 css/styles.css          operator-console theme
-js/simulator.js         telemetry source, framing (pure, tested)
+js/simulator.js         built-in telemetry source, framing (pure, tested)
 js/alarm.js             alarm state machine (pure, tested)
 js/chart.js             Canvas strip chart with threshold bands
-js/app.js               loop and rendering
-tests/alarm.test.js     Vitest — alarm logic
-tests/simulator.test.js Vitest — framing & clamping
-tests/e2e/dashboard.spec.js  Playwright + axe
+js/app.js               loop, WebSocket client, rendering
+tests/                  Vitest unit + Playwright/axe e2e
 ```
 
 ## Next
 
-- Replace the simulator with a real WebSocket to a FastAPI host reading an MSP430 over UART
-- Push calibration settings back down to the device
-- Persist history to SQLite via the host service
+- Push calibration settings from the dashboard back down to the device
+- Add light / voltage sensors to the firmware (the protocol already carries their tags)
+- Chart history replay from the host's SQLite store
 
 ---
 

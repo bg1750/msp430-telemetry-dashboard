@@ -3,3 +3,18 @@ test-results/
 playwright-report/
 coverage/
 .DS_Store
+
+# Python host
+host/.venv/
+host/__pycache__/
+host/.pytest_cache/
+*.pyc
+telemetry.db
+host/host.log
+
+# Firmware build artifacts
+firmware/*.out
+firmware/*.o
+
+# any location
+__pycache__/
