@@ -1,4 +1,4 @@
-/* Minimal Canvas line chart with threshold bands. No libraries. */
+/* Minimal Canvas line chart with threshold bands. */
 export function StripChart(canvas) {
     const ctx = canvas.getContext("2d");
     const dpr = window.devicePixelRatio || 1;
@@ -15,6 +15,15 @@ export function StripChart(canvas) {
     window.addEventListener("resize", resize);
 
     const PAD = { l: 44, r: 12, t: 14, b: 22 };
+
+    // pull theme colors from CSS so the chart matches the stylesheet palette
+    const css = getComputedStyle(canvas);
+    const color = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    const cGrid = color("--line", "#232f47");
+    const cMuted = color("--muted", "#7e8aa4");
+    const cTrace = color("--accent", "#4d8dff");
+    const cAmber = color("--amber", "#f0b23d");
+    const cRed = color("--red", "#ff6f6f");
 
     function draw(data, opts) {
       const w = canvas.clientWidth;
@@ -34,9 +43,9 @@ export function StripChart(canvas) {
       const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * plotH;
 
       // grid + y labels
-      ctx.strokeStyle = "#26332e";
-      ctx.fillStyle = "#8fa39a";
-      ctx.font = "11px 'JetBrains Mono', monospace";
+      ctx.strokeStyle = cGrid;
+      ctx.fillStyle = cMuted;
+      ctx.font = "11px 'Spline Sans Mono', monospace";
       ctx.lineWidth = 1;
       for (let g = 0; g <= 4; g++) {
         const val = lo + (g / 4) * (hi - lo);
@@ -45,11 +54,11 @@ export function StripChart(canvas) {
         ctx.fillText(val.toFixed(1), 6, gy + 3);
       }
 
-      // threshold bands
-      drawBand(y(hi), y(opts.hiThresh), "rgba(226,96,96,0.10)");   // above high
-      drawBand(y(opts.loThresh), y(lo), "rgba(226,96,96,0.10)");   // below low
-      drawThreshLine(y(opts.hiThresh), "#e26060");
-      drawThreshLine(y(opts.loThresh), "#e0a53d");
+      // threshold bands (hex + "1a" = ~10% alpha)
+      drawBand(y(hi), y(opts.hiThresh), cRed + "1a");   // above high
+      drawBand(y(opts.loThresh), y(lo), cRed + "1a");   // below low
+      drawThreshLine(y(opts.hiThresh), cRed);
+      drawThreshLine(y(opts.loThresh), cAmber);
 
       function drawBand(y1, y2, color) {
         ctx.fillStyle = color;
@@ -62,7 +71,7 @@ export function StripChart(canvas) {
       }
 
       // line
-      ctx.strokeStyle = "#4ecb8f";
+      ctx.strokeStyle = cTrace;
       ctx.lineWidth = 2;
       ctx.beginPath();
       data.forEach((d, i) => {
@@ -75,12 +84,12 @@ export function StripChart(canvas) {
       ctx.lineTo(x(data.length - 1), PAD.t + plotH);
       ctx.lineTo(x(0), PAD.t + plotH);
       ctx.closePath();
-      ctx.fillStyle = "rgba(78,203,143,0.08)";
+      ctx.fillStyle = cTrace + "14";   // ~8% alpha area fill
       ctx.fill();
 
       // last point marker
       const last = data[data.length - 1];
-      ctx.fillStyle = "#4ecb8f";
+      ctx.fillStyle = cTrace;
       ctx.beginPath(); ctx.arc(x(data.length - 1), y(last.value), 3.5, 0, Math.PI * 2); ctx.fill();
     }
 

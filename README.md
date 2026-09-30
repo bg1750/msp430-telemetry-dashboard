@@ -1,8 +1,7 @@
 # MSP430 Telemetry Dashboard
 
-A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams sensor readings, a Python service validates and stores them, and a live web dashboard renders them. It runs end-to-end with the board attached — and still demos with a **built-in simulator** when it isn't.
+A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams sensor readings, a Python service validates and stores them, and a live web dashboard renders them. It runs end-to-end with the board attached and still demos with a **built-in simulator** when it isn't.
 
-Built as the "centerpiece" project from my job-search plan: it proves the claim the resume makes — that I can talk to the hardware team, design the interface, and build the software in between, across all three languages.
 
 ---
 
