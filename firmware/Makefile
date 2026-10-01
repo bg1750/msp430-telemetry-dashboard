@@ -12,10 +12,10 @@ GCC_INC = $(MSP430_GCC_INCLUDE_DIR)          # set to your msp430-gcc include di
 CFLAGS  = -mmcu=$(MCU) -O2 -Wall -g -I$(GCC_INC)
 LDFLAGS = -L$(GCC_INC) -T $(MCU).ld
 
-SRC     = main.c
+SRC     = main.c hal_LCD.c
 OUT     = telemetry.out
 
-$(OUT): $(SRC)
+$(OUT): $(SRC) hal_LCD.h
 	$(CC) $(CFLAGS) $(SRC) -o $(OUT) $(LDFLAGS)
 
 flash: $(OUT)

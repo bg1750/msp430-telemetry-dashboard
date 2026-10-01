@@ -12,7 +12,7 @@
     <div class="wrap bar">
       <div>
         <h1>MSP430 Telemetry</h1>
-        <p class="tagline">Live operator dashboard for an ultra-low-power MSP430 sensor node — streams real telemetry over serial, with a simulated demo mode when no board is attached.</p>
+        <p class="tagline">Live operator dashboard for an ultra-low-power MSP430 sensor node — streaming real temperature telemetry over serial from the hardware.</p>
       </div>
       <div class="conn">
         <span class="dot" id="connDot"></span>
@@ -24,20 +24,11 @@
   <main class="wrap">
     <!-- Controls ---------------------------------------------------- -->
     <section class="controls-bar">
-      <div class="mode-group" role="group" aria-label="Data source">
-        <button type="button" id="deviceBtn" class="mode">Device</button>
-        <button type="button" id="liveBtn" class="mode active">Live (simulated)</button>
-        <button type="button" id="replayBtn" class="mode">Replay</button>
+      <div class="source-label" aria-label="Data source">
+        <span class="live-tag">Live device</span>
+        <span class="source-sub">MSP430 → serial → host</span>
       </div>
       <div class="ctrl-right">
-        <label class="rate">
-          <span>Sensor</span>
-          <select id="sensorSel">
-            <option value="temp">Temperature (°C)</option>
-            <option value="light">Light (lux)</option>
-            <option value="voltage">Supply (V)</option>
-          </select>
-        </label>
         <button type="button" id="startBtn" class="primary">Start</button>
         <button type="button" id="pauseBtn" class="ghost" disabled>Pause</button>
       </div>
@@ -86,7 +77,7 @@
   </main>
 
   <footer class="sitefoot">
-    <p>Built by Isabella Gallo · vanilla HTML/CSS/JS · Canvas charting, no libraries. Simulates the browser layer of a firmware → Python → dashboard pipeline.</p>
+    <p>Built by Isabella Gallo · vanilla HTML/CSS/JS · Canvas charting, no libraries. The browser layer of a firmware → Python → dashboard pipeline.</p>
     <p><a href="https://github.com/bg1750" target="_blank" rel="noopener">Source &amp; other projects on GitHub</a></p>
   </footer>
 

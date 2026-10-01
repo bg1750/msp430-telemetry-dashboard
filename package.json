@@ -1,7 +1,7 @@
 {
   "name": "msp430-telemetry-dashboard",
   "version": "1.0.0",
-  "description": "Live operator dashboard for a low-power sensor node, with a telemetry simulator.",
+  "description": "Live operator dashboard for a low-power MSP430 sensor node, streaming real telemetry from the hardware.",
   "type": "module",
   "scripts": {
     "test": "vitest run",

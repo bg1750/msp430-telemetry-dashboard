@@ -3,12 +3,13 @@
  *
  * Minimal bring-up build. Every ~500 ms it:
  *   1. samples the internal temperature sensor (ADC12_B),
- *   2. streams one framed reading over the USB backchannel UART,
- *   3. toggles the on-board red LED (P1.0) as a heartbeat.
+ *   2. shows the rounded whole-degree value on the on-board segment LCD,
+ *   3. streams one framed reading over the USB backchannel UART,
+ *   4. toggles the on-board red LED (P1.0) as a heartbeat.
  *
- * No LCD, no crystal, no timers/LPM — everything runs off the internal DCO
- * (~1 MHz) in a plain polled loop. The goal here is a dead-simple, reliable
- * path from the chip to the serial port; the dashboard reads it on the host.
+ * No crystal, no timers/LPM — everything runs off the internal DCO (~1 MHz) in
+ * a plain polled loop, and the LCD is clocked from ACLK (= internal VLO), so
+ * start-up stays deterministic with no oscillator to fault on.
  *
  * Frame format (see ../PROTOCOL.md):  $<seq>,TEMP,<value>*<CS>\r\n
  *
@@ -19,6 +20,7 @@
  */
 #include <msp430.h>
 #include <stdint.h>
+#include "hal_LCD.h"
 
 // --- Temperature-sensor factory calibration (TLV), 1.2 V reference ---
 #define CALADC_15V_30C  (*((uint16_t *)0x1A1A))  // ADC @ 30 °C
@@ -27,9 +29,9 @@
 static uint16_t seq = 0;
 
 // ---------------------------------------------------------------- clocks
-// All internal, no crystal: the DCO (~1 MHz) drives MCLK and SMCLK (CPU + UART).
-// ACLK isn't used by anything here. Keeping it crystal-free makes start-up
-// deterministic — there's no oscillator-fault wait to hang on.
+// All internal, no crystal: the DCO (~1 MHz) drives MCLK and SMCLK (CPU + UART),
+// and the internal VLO (~9.4 kHz) drives ACLK, which clocks the LCD. Keeping it
+// crystal-free makes start-up deterministic — no oscillator-fault wait to hang on.
 static void init_clocks(void)
 {
     CSCTL0_H = CSKEY_H;                     // unlock CS registers
@@ -171,11 +173,16 @@ int main(void)
     init_clocks();
     init_uart();
     init_adc();
+    LCD_init();
+    LCD_clear();
 
-    // Polled loop: heartbeat, sample, send a frame, busy-wait ~500 ms.
+    // Polled loop: heartbeat, sample, update LCD, send a frame, wait ~500 ms.
     for (;;) {
+        int t_x10;
         P1OUT ^= BIT0;                      // heartbeat (~1 Hz)
-        send_frame(read_temp_c_x10());
+        t_x10 = read_temp_c_x10();
+        LCD_showInt((t_x10 + 5) / 10);      // rounded whole degrees
+        send_frame(t_x10);
         __delay_cycles(500000);             // ~0.5 s at ~1 MHz MCLK
     }
 }

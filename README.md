@@ -1,6 +1,6 @@
 # MSP430 Telemetry Dashboard
 
-A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams sensor readings, a Python service validates and stores them, and a live web dashboard renders them. It runs end-to-end with the board attached and still demos with a **built-in simulator** when it isn't.
+A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams temperature readings, a Python service validates and stores them, and a live web dashboard renders them end-to-end. The dashboard shows **live hardware data only** — no simulation.
 
 
 ---
@@ -23,26 +23,24 @@ C firmware     ─UART→   pyserial + FastAPI  ─WS→  Canvas UI
 
 The wire format between firmware and host is documented in [PROTOCOL.md](PROTOCOL.md).
 
-### Three sources
+### Data source
 
-The dashboard has three data-source buttons:
-
-- **Device** — connects to the Python host over WebSocket (`ws://localhost:8000/ws`) for the real hardware stream.
-- **Live (simulated)** — `js/simulator.js` generates a random-walk sensor, so the front-end runs with no board or host.
-- **Replay** — plays a recorded run so a demo repeats identically.
+The dashboard has a single source: the **live device**. Pressing **Start** opens a
+WebSocket to the Python host (`ws://localhost:8000/ws`), which forwards each framed
+reading from the board. There is no simulated or replayed data.
 
 ### Run the full pipeline
 
 1. Flash the firmware — see [firmware/README.md](firmware/README.md).
-2. Start the host — `cd host && python host.py --port COM6` (the "MSP Application UART1" port; the number varies — or `--sim` for no hardware). See [host/README.md](host/README.md).
-3. Serve the dashboard — `npx http-server -c-1 .` — click **Device** → **Start**.
+2. Start the host — `cd host && python host.py --port COM6` (the "MSP Application UART1" port; the number varies). See [host/README.md](host/README.md).
+3. Serve the dashboard — `npx http-server -c-1 .` — press **Start**.
 
 ---
 
 ## What It Does
 
-- **Live & Replay modes** — "Live" streams a simulated random-walk sensor; "Replay" plays a recorded run so a demo repeats identically
-- **Three sensors** — temperature, light, and supply voltage, each with sensible default alarm thresholds
+- **Live stream** — subscribes to the host WebSocket and renders each temperature reading as it arrives from the board
+- **Adjustable alarm thresholds** — set low/high limits; the status tile and chart bands reflect them live
 - **Stat tiles** — current value, min/max, and running mean
 - **Canvas strip chart** — hand-rolled, no charting library: high-DPI aware, responsive, with shaded high/low threshold bands
 - **Alarm logic** — nominal / near-limit / alarm, with adjustable low and high thresholds
@@ -52,7 +50,7 @@ The dashboard has three data-source buttons:
 
 ## Handling the Ugly Cases
 
-The alarm path is deliberately exercised: the simulator injects rare spikes so you can watch the status tile flip to **HIGH/LOW alarm** and the log record the transition and recovery — the "safety-critical mindset" signal an instrumentation employer screens for.
+The host validates every frame against its XOR checksum and **silently drops** corrupt or partial ones — counted, never fatal — so unplugging the board mid-stream or injecting a bad byte never crashes the pipeline (see [PROTOCOL.md](PROTOCOL.md)). On the dashboard, when a reading crosses your low/high thresholds the status tile flips to **HIGH/LOW alarm** and the log records the transition and recovery — the "safety-critical mindset" signal an instrumentation employer screens for.
 
 ---
 
@@ -63,7 +61,7 @@ The alarm path is deliberately exercised: the simulator injects rare spikes so y
 | C (MSP430) | Firmware: ADC sensor sampling, UART framing, register-level peripheral setup |
 | Python | Host: pyserial, FastAPI, WebSocket, SQLite |
 | HTML5 / CSS3 | Dashboard structure and dark operator-console styling |
-| JavaScript | State machine, alarm logic, WebSocket client, simulator |
+| JavaScript | WebSocket client, alarm state machine, Canvas rendering |
 | Canvas API | Custom strip chart (no libraries) |
 
 The dashboard has no frameworks or build step. Its scripts load as ES modules, so serve the folder and press **Start**:
@@ -81,7 +79,7 @@ npx http-server -c-1 .      # then visit the printed localhost URL
 | Unit | Vitest | `npm test` |
 | e2e + accessibility | Playwright + axe-core | `npm run test:e2e` |
 
-The unit suite covers the two pieces of logic worth locking down: the **alarm state machine** (nominal / near-limit / high / low, including exact-threshold behaviour) and the **telemetry framing** (sequence numbers, decimal precision per sensor, and range clamping over 500 samples). The e2e suite starts a stream and asserts the reading and event log update, then runs axe against the page. CI runs the unit suite on every push.
+The unit suite covers the **alarm state machine** (nominal / near-limit / high / low, including exact-threshold behaviour). The e2e suite asserts that pressing **Start** opens the live connection and updates the UI, then runs axe against the page. CI runs the unit suite on every push.
 
 > First e2e run only: `npx playwright install`.
 
@@ -97,10 +95,9 @@ host/                   Python host (host.py, protocol.py, tests, README)
 PROTOCOL.md             the firmware↔host wire format
 index.html              dashboard layout
 css/styles.css          operator-console theme
-js/simulator.js         built-in telemetry source, framing (pure, tested)
 js/alarm.js             alarm state machine (pure, tested)
 js/chart.js             Canvas strip chart with threshold bands
-js/app.js               loop, WebSocket client, rendering
+js/app.js               live WebSocket client, rendering, event log
 tests/                  Vitest unit + Playwright/axe e2e
 ```
 

@@ -55,20 +55,20 @@ main {
 .controls-bar { 
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; 
 }
-.mode-group { 
-  display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; 
+.source-label {
+  display: flex; flex-direction: column; gap: 0.15rem;
 }
-.mode { 
-  background: none; border: none; color: var(--muted); font-family: inherit; font-size: 0.86rem; padding: 0.4rem 0.9rem; border-radius: 7px; cursor: pointer; 
+.live-tag {
+  display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--mono); font-size: 0.9rem; font-weight: 600; color: var(--ink);
 }
-.mode.active { 
-  background: var(--panel-2); color: var(--ink); 
+.live-tag::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent);
 }
-.ctrl-right { 
-  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; 
+.source-sub {
+  font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
 }
-.rate { 
-  display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--muted); 
+.ctrl-right {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
 }
 select, input[type="number"] {
   font-family: inherit; font-size: 0.85rem; color: var(--ink); background: var(--panel);
