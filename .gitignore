@@ -18,3 +18,7 @@ firmware/*.o
 
 # any location
 __pycache__/
+
+# editor/IDE junk
+*.lnk
+problems.json

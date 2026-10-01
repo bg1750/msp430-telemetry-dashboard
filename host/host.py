@@ -7,7 +7,9 @@ to any connected dashboards over a WebSocket. Bad/partial frames are dropped
 and counted, never fatal.
 
 Run:
-    python host.py --port COM5                 # real board (Windows)
+    python host.py --port COM6                 # real board (Windows) — use the
+                                               #   "MSP Application UART1" COM port;
+                                               #   the number varies by USB port.
     python host.py --port /dev/ttyACM1         # real board (Linux/Mac)
     python host.py --sim                        # no hardware: generate frames
 
@@ -167,7 +169,7 @@ def stop_reader():
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="MSP430 telemetry host")
-    ap.add_argument("--port", help="serial port, e.g. COM5 or /dev/ttyACM1")
+    ap.add_argument("--port", help="serial port, e.g. COM6 or /dev/ttyACM1")
     ap.add_argument("--baud", type=int, default=9600)
     ap.add_argument("--sim", action="store_true", help="simulate, no hardware")
     ap.add_argument("--http-port", type=int, default=8000)

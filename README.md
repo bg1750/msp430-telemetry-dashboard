@@ -10,14 +10,14 @@ A complete **hardware-to-browser** telemetry system for an ultra-low-power senso
 ```
 MSP430FR6989            Python host              This dashboard
 C firmware     ─UART→   pyserial + FastAPI  ─WS→  Canvas UI
-(temp sensor +          (validate checksum,       (live chart,
- segment LCD)            timestamp, SQLite,        alarms, log)
+(temp sensor,           (validate checksum,       (live chart,
+ LED heartbeat)          timestamp, SQLite,        alarms, log)
                          WebSocket broadcast)
 ```
 
 | Layer | Folder | Language | What it does |
 |---|---|---|---|
-| Firmware | [`firmware/`](firmware/) | C | Reads the internal temp sensor, drives the segment LCD, streams framed readings over UART. Sleeps in LPM3. |
+| Firmware | [`firmware/`](firmware/) | C | Reads the internal temp sensor via ADC12_B and streams framed readings over UART, with an LED heartbeat. Register-level, no driverlib. |
 | Host | [`host/`](host/) | Python | `pyserial` reads frames, validates the checksum, stores to SQLite, serves a FastAPI WebSocket. |
 | Dashboard | `js/`, `index.html` | JavaScript | Subscribes to the WebSocket; Canvas chart, alarm logic, event log. |
 
@@ -34,7 +34,7 @@ The dashboard has three data-source buttons:
 ### Run the full pipeline
 
 1. Flash the firmware — see [firmware/README.md](firmware/README.md).
-2. Start the host — `cd host && python host.py --port COM5` (or `--sim` for no hardware). See [host/README.md](host/README.md).
+2. Start the host — `cd host && python host.py --port COM6` (the "MSP Application UART1" port; the number varies — or `--sim` for no hardware). See [host/README.md](host/README.md).
 3. Serve the dashboard — `npx http-server -c-1 .` — click **Device** → **Start**.
 
 ---
@@ -60,7 +60,7 @@ The alarm path is deliberately exercised: the simulator injects rare spikes so y
 
 | Technology | Role |
 |---|---|
-| C (MSP430) | Firmware: sensor sampling, LCD, UART, low-power modes |
+| C (MSP430) | Firmware: ADC sensor sampling, UART framing, register-level peripheral setup |
 | Python | Host: pyserial, FastAPI, WebSocket, SQLite |
 | HTML5 / CSS3 | Dashboard structure and dark operator-console styling |
 | JavaScript | State machine, alarm logic, WebSocket client, simulator |
@@ -92,7 +92,7 @@ The unit suite covers the JavaScript logic. The **Python** frame parser has its 
 ## Files
 
 ```
-firmware/               MSP430 C firmware (main.c, hal_LCD, Makefile, README)
+firmware/               MSP430 C firmware (main.c, Makefile, README)
 host/                   Python host (host.py, protocol.py, tests, README)
 PROTOCOL.md             the firmware↔host wire format
 index.html              dashboard layout
