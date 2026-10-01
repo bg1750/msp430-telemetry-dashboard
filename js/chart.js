@@ -6,7 +6,7 @@ export function StripChart(canvas) {
     // Handle high-DPI + responsive width.
     function resize() {
       const cssW = canvas.clientWidth || 820;
-      const cssH = 300;
+      const cssH = 220;
       canvas.width = cssW * dpr;
       canvas.height = cssH * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -19,15 +19,15 @@ export function StripChart(canvas) {
     // pull theme colors from CSS so the chart matches the stylesheet palette
     const css = getComputedStyle(canvas);
     const color = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
-    const cGrid = color("--line", "rgba(238,234,215,0.10)");
-    const cMuted = color("--muted", "rgba(238,234,215,0.58)");
-    const cTrace = color("--accent", "#8FA87C");
-    const cAmber = color("--amber", "rgba(238,234,215,0.5)");
-    const cRed = color("--red", "#A32020");
+    const cGrid = color("--chart-grid", "rgba(238,234,215,0.10)");
+    const cMuted = color("--chart-muted", "rgba(238,234,215,0.55)");
+    const cTrace = color("--chart-trace", "#9BB46E");
+    const cAmber = color("--chart-lo", "rgba(238,234,215,0.45)");
+    const cRed = color("--chart-hi", "#C0472F");
 
     function draw(data, opts) {
       const w = canvas.clientWidth;
-      const h = 300;
+      const h = 220;
       ctx.clearRect(0, 0, w, h);
       if (!data.length) return;
 
@@ -45,7 +45,7 @@ export function StripChart(canvas) {
       // grid + y labels
       ctx.strokeStyle = cGrid;
       ctx.fillStyle = cMuted;
-      ctx.font = "11px 'Courier Prime', monospace";
+      ctx.font = "11px 'IBM Plex Mono', monospace";
       ctx.lineWidth = 1;
       for (let g = 0; g <= 4; g++) {
         const val = lo + (g / 4) * (hi - lo);

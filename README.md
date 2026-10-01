@@ -2,6 +2,7 @@
 
 A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams temperature and supply-voltage readings, a Python service validates and stores them, and a live web dashboard renders them end-to-end. The dashboard shows **live hardware data only** — no simulation.
 
+![The dashboard streaming live temperature and supply voltage from the MSP430](assets/dashboard.gif)
 
 ---
 
