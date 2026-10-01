@@ -1,9 +1,9 @@
 # Firmware — MSP430FR6989 telemetry node
 
-Embedded C for the **MSP-EXP430FR6989 LaunchPad**. Samples the internal
-temperature sensor every ~500 ms, shows the rounded value on the on-board
-segment LCD, and streams a framed reading over the USB backchannel UART,
-blinking the on-board red LED as a heartbeat.
+Embedded C for the **MSP-EXP430FR6989 LaunchPad**. Every ~500 ms it samples the
+internal temperature sensor and the supply-voltage monitor, shows the rounded
+temperature on the on-board segment LCD, and streams a framed `TEMP` and `VOLT`
+reading over the USB backchannel UART, blinking the on-board red LED as a heartbeat.
 
 Deliberately minimal: a plain polled loop on the internal DCO — no crystal, no
 timers, no low-power modes. The LCD is clocked from ACLK (= internal VLO), so
@@ -14,12 +14,13 @@ path is trap-free (no `sprintf`, which overflows the small default stack here).
 
 | Layer | Detail |
 |---|---|
-| Sensor | Internal temp sensor via ADC12_B, 1.2 V reference, factory TLV calibration |
+| Temp | Internal temp sensor (A30) via ADC12_B, 1.2 V reference, factory TLV calibration |
+| Supply | Supply-voltage monitor (A31 = AVCC/2) via ADC12_B, 2.5 V reference — no extra hardware |
 | Display | On-board FH-1138P segment LCD (`hal_LCD.c`), rounded whole degrees, clocked from ACLK = VLO |
 | Link | eUSCI_A1 UART, **9600 8N1**, on P3.4 (TX) / P3.5 (RX) — the eZ-FET "Application UART1" |
 | Heartbeat | On-board red LED (P1.0): 3× boot blink at reset, then ~1 Hz while the loop runs |
 | Clock | Internal DCO ~1 MHz drives MCLK + SMCLK; VLO (~9.4 kHz) drives ACLK; no external crystal |
-| Frame | `$<seq>,TEMP,<value>*<CS>\r\n` — see [../PROTOCOL.md](../PROTOCOL.md) |
+| Frame | `$<seq>,TEMP,<value>*<CS>` and `$<seq>,VOLT,<value>*<CS>`, CRLF-terminated — see [../PROTOCOL.md](../PROTOCOL.md) |
 
 ## Files
 
@@ -52,10 +53,13 @@ make flash    # programs the board over USB
 - The red LED (P1.0) flashes 3× at reset, then blinks steadily at ~1 Hz. A
   steady blink means execution reached the main loop; a frozen LED means it
   stalled in init or trapped out to `exit.c`.
-- Open the backchannel COM port at 9600 baud (PuTTY / `screen`) and you should see:
+- Open the backchannel COM port at 9600 baud (PuTTY / `screen`) and you should
+  see alternating temperature and supply-voltage frames:
   ```
-  $0,TEMP,22.4*1B
-  $1,TEMP,22.5*1A
+  $0,TEMP,22.4*26
+  $1,VOLT,3.30*2E
+  $2,TEMP,22.5*25
+  $3,VOLT,3.30*2C
   ```
 Then hand that COM port to the Python host (`../host`).
 

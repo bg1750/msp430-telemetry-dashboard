@@ -4,19 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MSP430 Telemetry Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;600;700&family=Sora:wght@400;500;600&family=Spline+Sans+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="wrap bar">
       <div>
+        <p class="eyebrow">Bench node · MSP430FR6989</p>
         <h1>MSP430 Telemetry</h1>
-        <p class="tagline">Live operator dashboard for an ultra-low-power MSP430 sensor node — streaming real temperature telemetry over serial from the hardware.</p>
+        <p class="tagline">A little bench rig I wired up: the MSP430 takes its own temperature and supply voltage and sends them up the serial wire to this page, once every half second.</p>
       </div>
       <div class="conn">
         <span class="dot" id="connDot"></span>
-        <span id="connText">Disconnected</span>
+        <span id="connText">Offline</span>
       </div>
     </div>
   </header>
@@ -25,8 +26,8 @@
     <!-- Controls ---------------------------------------------------- -->
     <section class="controls-bar">
       <div class="source-label" aria-label="Data source">
-        <span class="live-tag">Live device</span>
-        <span class="source-sub">MSP430 → serial → host</span>
+        <span class="live-tag">Live feed</span>
+        <span class="source-sub">msp430 → serial → host</span>
       </div>
       <div class="ctrl-right">
         <button type="button" id="startBtn" class="primary">Start</button>
@@ -37,16 +38,20 @@
     <!-- Stat tiles -------------------------------------------------- -->
     <section class="tiles" aria-label="Current readings">
       <div class="tile">
-        <span class="tile-label">Current</span>
+        <span class="tile-label">Now</span>
         <span class="tile-value"><span id="curVal">—</span><span class="unit" id="curUnit"></span></span>
       </div>
       <div class="tile">
-        <span class="tile-label">Min / Max</span>
+        <span class="tile-label">Low / High</span>
         <span class="tile-value small"><span id="minVal">—</span> / <span id="maxVal">—</span></span>
       </div>
       <div class="tile">
-        <span class="tile-label">Mean</span>
+        <span class="tile-label">Average</span>
         <span class="tile-value"><span id="meanVal">—</span></span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Supply</span>
+        <span class="tile-value"><span id="voltVal">—</span><span class="unit" id="voltUnit">V</span></span>
       </div>
       <div class="tile" id="statusTile">
         <span class="tile-label">Status</span>
@@ -69,7 +74,7 @@
     <!-- Log --------------------------------------------------------- -->
     <section class="card">
       <div class="section-head">
-        <h2>Event log</h2>
+        <h2>Log</h2>
         <button type="button" class="ghost small" id="clearLog">Clear</button>
       </div>
       <ul class="log" id="log"></ul>
@@ -77,10 +82,12 @@
   </main>
 
   <footer class="sitefoot">
-    <p>Built by Isabella Gallo · vanilla HTML/CSS/JS · Canvas charting, no libraries. The browser layer of a firmware → Python → dashboard pipeline.</p>
+    <p>Soldered, flashed, and coded by Isabella Gallo — firmware in C, host in Python, this page in plain HTML/CSS/JS with a hand-drawn Canvas chart. No libraries.</p>
     <p><a href="https://github.com/bg1750" target="_blank" rel="noopener">Source &amp; other projects on GitHub</a></p>
   </footer>
 
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/alarm.js"></script>
+  <script type="module" src="js/chart.js"></script>
 </body>
 </html>
