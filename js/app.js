@@ -1,6 +1,7 @@
-/* MSP430 Telemetry Dashboard — wiring: source → state → tiles + chart + log. */
+/* MSP430 Telemetry Dashboard — live WebSocket stream → tiles + chart + log.
+   The only data source is the real device: the Python host forwards framed
+   readings from the board over a WebSocket. No simulation, no replay. */
 import { StripChart } from "./chart.js";
-import { Simulator, makeReplay, SENSORS } from "./simulator.js";
 import { evaluateAlarm } from "./alarm.js";
 
 (function () {
@@ -8,74 +9,34 @@ import { evaluateAlarm } from "./alarm.js";
   const $ = (id) => document.getElementById(id);
 
   const MAX_POINTS = 120;
-  const INTERVAL = 500; // ms between readings
   const HOST_WS = "ws://localhost:8000/ws"; // Python host (see host/README.md)
-
-  const SENSOR_TITLES = { temp: "Temperature", light: "Light", voltage: "Supply voltage" };
 
   const chart = StripChart($("chart"));
 
-  let mode = "live";       // "device" | "live" | "replay"
   let running = false;
-  let timer = null;
   let ws = null;
   let data = [];
-  let sim = null;
-  let replayBuf = [];
-  let replayIdx = 0;
   let lastAlarm = "ok";
 
-  /* ---- Source management ---- */
-  function currentSensor() { return $("sensorSel").value; }
-
-  function resetSource() {
-    data = [];
-    if (mode === "live") {
-      sim = Simulator(currentSensor());
-    } else {
-      replayBuf = makeReplay(currentSensor(), 240);
-      replayIdx = 0;
-    }
-  }
-
-  function nextReading() {
-    if (mode === "live") return sim.next();
-    const r = replayBuf[replayIdx % replayBuf.length];
-    replayIdx++;
-    return Object.assign({}, r, { t: Date.now() });
-  }
-
-  /* ---- Loop ---- */
-  // Single entry point for a reading, whatever the source.
+  /* ---- Reading intake ---- */
+  // Single entry point for a reading from the live stream.
   function handleReading(r) {
     data.push(r);
     if (data.length > MAX_POINTS) data.shift();
     render(r);
   }
 
-  function tick() { handleReading(nextReading()); }
-
+  /* ---- Live stream control ---- */
   function start() {
     if (running) return;
     running = true;
     $("startBtn").disabled = true;
     $("pauseBtn").disabled = false;
-
-    if (mode === "device") {
-      connectDevice(); // readings arrive via WebSocket, not the timer
-      return;
-    }
-
-    if (data.length === 0) resetSource();
-    setConnected(true);
-    log("Stream started (" + mode + ", " + SENSOR_TITLES[currentSensor()] + ")", "ok");
-    tick();
-    timer = setInterval(tick, INTERVAL);
+    connectDevice();
   }
 
   function pause() {
     running = false;
-    clearInterval(timer);
     disconnectDevice();
     setConnected(false);
     $("startBtn").disabled = false;
@@ -83,7 +44,7 @@ import { evaluateAlarm } from "./alarm.js";
     log("Stream paused", "");
   }
 
-  /* ---- Device source (live WebSocket to the Python host) ---- */
+  /* ---- WebSocket to the Python host ---- */
   function connectDevice() {
     log("Connecting to host " + HOST_WS + " …", "");
     try {
@@ -92,7 +53,7 @@ import { evaluateAlarm } from "./alarm.js";
       log("Could not open WebSocket — start host.py first", "alarm");
       return;
     }
-    ws.onopen = () => { setConnected(true); log("Connected to device host", "ok"); };
+    ws.onopen = () => { setConnected(true); log("Connected — streaming live telemetry", "ok"); };
     ws.onmessage = (ev) => {
       try {
         const r = JSON.parse(ev.data);
@@ -109,20 +70,17 @@ import { evaluateAlarm } from "./alarm.js";
 
   /* ---- Render ---- */
   function render(r) {
-    // In device mode the sensor/unit come from the reading itself.
-    const sensorKey = r.sensor || currentSensor();
-    const unit = r.unit || (SENSORS[sensorKey] ? SENSORS[sensorKey].unit : "");
+    const unit = r.unit || "°C";
     const values = data.map((d) => d.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const dp = sensorKey === "voltage" ? 3 : 1;
 
-    $("curVal").textContent = r.value.toFixed(dp);
+    $("curVal").textContent = r.value.toFixed(1);
     $("curUnit").textContent = unit;
-    $("minVal").textContent = min.toFixed(dp);
-    $("maxVal").textContent = max.toFixed(dp);
-    $("meanVal").textContent = mean.toFixed(dp);
+    $("minVal").textContent = min.toFixed(1);
+    $("maxVal").textContent = max.toFixed(1);
+    $("meanVal").textContent = mean.toFixed(1);
 
     const lo = parseFloat($("loThresh").value);
     const hi = parseFloat($("hiThresh").value);
@@ -175,38 +133,6 @@ import { evaluateAlarm } from "./alarm.js";
   /* ---- Events ---- */
   $("startBtn").addEventListener("click", start);
   $("pauseBtn").addEventListener("click", pause);
-
-  $("sensorSel").addEventListener("change", () => {
-    const s = currentSensor();
-    $("chartTitle").textContent = SENSOR_TITLES[s];
-    const defaults = { temp: [10, 30], light: [100, 900], voltage: [3.0, 3.5] };
-    $("loThresh").value = defaults[s][0];
-    $("hiThresh").value = defaults[s][1];
-    const wasRunning = running;
-    pause();
-    resetSource();
-    lastAlarm = "ok";
-    if (wasRunning) start();
-  });
-
-  $("deviceBtn").addEventListener("click", () => setMode("device"));
-  $("liveBtn").addEventListener("click", () => setMode("live"));
-  $("replayBtn").addEventListener("click", () => setMode("replay"));
-
-  function setMode(m) {
-    if (mode === m) return;
-    mode = m;
-    $("deviceBtn").classList.toggle("active", m === "device");
-    $("liveBtn").classList.toggle("active", m === "live");
-    $("replayBtn").classList.toggle("active", m === "replay");
-    const wasRunning = running;
-    pause();
-    if (m !== "device") { resetSource(); lastAlarm = "ok"; }
-    const labels = { device: "device (WebSocket to host)", live: "live simulation", replay: "recorded replay" };
-    log("Source: " + labels[m], "");
-    if (wasRunning) start();
-  }
-
   $("clearLog").addEventListener("click", emptyLog);
 
   /* ---- Init ---- */

@@ -1,28 +1,31 @@
 # Firmware — MSP430FR6989 telemetry node
 
 Embedded C for the **MSP-EXP430FR6989 LaunchPad**. Samples the internal
-temperature sensor every ~500 ms and streams a framed reading over the USB
-backchannel UART, blinking the on-board red LED as a heartbeat.
+temperature sensor every ~500 ms, shows the rounded value on the on-board
+segment LCD, and streams a framed reading over the USB backchannel UART,
+blinking the on-board red LED as a heartbeat.
 
-Deliberately minimal: a plain polled loop on the internal DCO — no LCD, no
-crystal, no timers or low-power modes. That keeps bring-up deterministic (there
-is no oscillator to fault on) and the hot path trap-free (no `sprintf`, which
-overflows the small default stack on this part).
+Deliberately minimal: a plain polled loop on the internal DCO — no crystal, no
+timers, no low-power modes. The LCD is clocked from ACLK (= internal VLO), so
+bring-up stays deterministic (there is no oscillator to fault on), and the hot
+path is trap-free (no `sprintf`, which overflows the small default stack here).
 
 ## What it does
 
 | Layer | Detail |
 |---|---|
 | Sensor | Internal temp sensor via ADC12_B, 1.2 V reference, factory TLV calibration |
+| Display | On-board FH-1138P segment LCD (`hal_LCD.c`), rounded whole degrees, clocked from ACLK = VLO |
 | Link | eUSCI_A1 UART, **9600 8N1**, on P3.4 (TX) / P3.5 (RX) — the eZ-FET "Application UART1" |
 | Heartbeat | On-board red LED (P1.0): 3× boot blink at reset, then ~1 Hz while the loop runs |
-| Clock | Internal DCO ~1 MHz drives MCLK + SMCLK; no external crystal |
+| Clock | Internal DCO ~1 MHz drives MCLK + SMCLK; VLO (~9.4 kHz) drives ACLK; no external crystal |
 | Frame | `$<seq>,TEMP,<value>*<CS>\r\n` — see [../PROTOCOL.md](../PROTOCOL.md) |
 
 ## Files
 
 ```
 main.c        clocks, UART, ADC, framing, main loop (register-level, no driverlib)
+hal_LCD.c/.h  segment-LCD driver (register-level)
 Makefile      build/flash with msp430-gcc + mspdebug
 ```
 
@@ -30,9 +33,11 @@ Makefile      build/flash with msp430-gcc + mspdebug
 
 **Option A — Code Composer Studio (easiest on Windows)**
 1. *File → New → CCS Project*, device `MSP430FR6989`, empty project.
-2. Replace the generated stub `main.c` with this folder's `main.c`. **Note:** the
-   CCS wizard creates the project in its own workspace, *not* in this repo —
-   so edit the copy CCS actually builds, or they'll drift apart.
+2. Drop this folder's `main.c`, `hal_LCD.c`, `hal_LCD.h` into the project,
+   overwriting the generated stub `main.c`. **Note:** the CCS wizard creates the
+   project in its own workspace, *not* in this repo — so edit the copy CCS
+   actually builds, or they'll drift apart. After adding files, press **F5** to
+   refresh so the managed build discovers them.
 3. Plug in the LaunchPad, click **Debug** (build + flash), then **Resume (F8)**.
 
 **Option B — command line (msp430-gcc + mspdebug)**
