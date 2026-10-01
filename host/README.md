@@ -28,15 +28,20 @@ pip install -r requirements.txt
 
 ```
 # real board — use the LaunchPad's Application/backchannel COM port
-python host.py --port COM5            # Windows
+python host.py --port COM6            # Windows (number varies — see below)
 python host.py --port /dev/ttyACM1    # Linux/Mac
 
 # no hardware yet? generate frames so you can test the host + dashboard:
 python host.py --sim
 ```
 
-Find the port: Windows *Device Manager → Ports* ("MSP Application UART…");
-Linux/Mac `ls /dev/tty*` (usually `ttyACM1`, the second of the two the board exposes).
+Find the port — **the COM number is not fixed**; it changes with which USB port
+the board is plugged into. The board exposes *two* ports: "MSP **Application
+UART1**" (telemetry — this one) and "MSP **Debug Interface**" (flashing — not this).
+
+- Windows: *Device Manager → Ports*, or
+  `Get-PnpDevice -Class Ports -PresentOnly` in PowerShell.
+- Linux/Mac: `ls /dev/tty*` (usually `ttyACM1`, the second of the two).
 
 ## Endpoints
 
