@@ -19,11 +19,11 @@ export function StripChart(canvas) {
     // pull theme colors from CSS so the chart matches the stylesheet palette
     const css = getComputedStyle(canvas);
     const color = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
-    const cGrid = color("--line", "#232f47");
-    const cMuted = color("--muted", "#7e8aa4");
-    const cTrace = color("--accent", "#4d8dff");
-    const cAmber = color("--amber", "#f0b23d");
-    const cRed = color("--red", "#ff6f6f");
+    const cGrid = color("--line", "rgba(238,234,215,0.10)");
+    const cMuted = color("--muted", "rgba(238,234,215,0.58)");
+    const cTrace = color("--accent", "#8FA87C");
+    const cAmber = color("--amber", "rgba(238,234,215,0.5)");
+    const cRed = color("--red", "#A32020");
 
     function draw(data, opts) {
       const w = canvas.clientWidth;
@@ -45,7 +45,7 @@ export function StripChart(canvas) {
       // grid + y labels
       ctx.strokeStyle = cGrid;
       ctx.fillStyle = cMuted;
-      ctx.font = "11px 'Spline Sans Mono', monospace";
+      ctx.font = "11px 'Courier Prime', monospace";
       ctx.lineWidth = 1;
       for (let g = 0; g <= 4; g++) {
         const val = lo + (g / 4) * (hi - lo);

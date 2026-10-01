@@ -19,8 +19,14 @@ import { evaluateAlarm } from "./alarm.js";
   let lastAlarm = "ok";
 
   /* ---- Reading intake ---- */
-  // Single entry point for a reading from the live stream.
+  // Single entry point for a reading from the live stream. The board streams
+  // two channels; temperature drives the chart/stats, supply voltage its tile.
   function handleReading(r) {
+    if (r.sensor === "voltage") {
+      $("voltVal").textContent = r.value.toFixed(2);
+      if (r.unit) $("voltUnit").textContent = r.unit;
+      return;
+    }
     data.push(r);
     if (data.length > MAX_POINTS) data.shift();
     render(r);
@@ -111,7 +117,7 @@ import { evaluateAlarm } from "./alarm.js";
 
   /* ---- Connection indicator ---- */
   function setConnected(on) {
-    $("connText").textContent = on ? "Streaming" : (data.length ? "Paused" : "Disconnected");
+    $("connText").textContent = on ? "Streaming" : (data.length ? "Paused" : "Offline");
     document.querySelector(".conn").classList.toggle("on", on);
   }
 
@@ -127,7 +133,7 @@ import { evaluateAlarm } from "./alarm.js";
     while (logEl.children.length > 50) logEl.lastChild.remove();
   }
   function emptyLog() {
-    logEl.innerHTML = '<li class="log-empty">No events yet — press Start.</li>';
+    logEl.innerHTML = '<li class="log-empty">Nothing logged yet — hit Start.</li>';
   }
 
   /* ---- Events ---- */

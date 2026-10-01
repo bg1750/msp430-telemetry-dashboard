@@ -1,6 +1,6 @@
 # MSP430 Telemetry Dashboard
 
-A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams temperature readings, a Python service validates and stores them, and a live web dashboard renders them end-to-end. The dashboard shows **live hardware data only** — no simulation.
+A complete **hardware-to-browser** telemetry system for an ultra-low-power sensor node: C firmware on an MSP430FR6989 streams temperature and supply-voltage readings, a Python service validates and stores them, and a live web dashboard renders them end-to-end. The dashboard shows **live hardware data only** — no simulation.
 
 
 ---
@@ -10,14 +10,14 @@ A complete **hardware-to-browser** telemetry system for an ultra-low-power senso
 ```
 MSP430FR6989            Python host              This dashboard
 C firmware     ─UART→   pyserial + FastAPI  ─WS→  Canvas UI
-(temp sensor,           (validate checksum,       (live chart,
+(temp + supply V,       (validate checksum,       (live chart,
  LED heartbeat)          timestamp, SQLite,        alarms, log)
                          WebSocket broadcast)
 ```
 
 | Layer | Folder | Language | What it does |
 |---|---|---|---|
-| Firmware | [`firmware/`](firmware/) | C | Reads the internal temp sensor via ADC12_B and streams framed readings over UART, with an LED heartbeat. Register-level, no driverlib. |
+| Firmware | [`firmware/`](firmware/) | C | Reads the internal temp sensor and supply-voltage monitor via ADC12_B and streams framed `TEMP`/`VOLT` readings over UART, with an LED heartbeat. Register-level, no driverlib. |
 | Host | [`host/`](host/) | Python | `pyserial` reads frames, validates the checksum, stores to SQLite, serves a FastAPI WebSocket. |
 | Dashboard | `js/`, `index.html` | JavaScript | Subscribes to the WebSocket; Canvas chart, alarm logic, event log. |
 
@@ -39,7 +39,7 @@ reading from the board. There is no simulated or replayed data.
 
 ## What It Does
 
-- **Live stream** — subscribes to the host WebSocket and renders each temperature reading as it arrives from the board
+- **Live stream** — subscribes to the host WebSocket and renders each reading as it arrives: temperature drives the chart/stats, supply voltage its own tile
 - **Adjustable alarm thresholds** — set low/high limits; the status tile and chart bands reflect them live
 - **Stat tiles** — current value, min/max, and running mean
 - **Canvas strip chart** — hand-rolled, no charting library: high-DPI aware, responsive, with shaded high/low threshold bands

@@ -2,9 +2,10 @@
  * main.c — MSP430FR6989 telemetry node (MSP-EXP430FR6989 LaunchPad)
  *
  * Minimal bring-up build. Every ~500 ms it:
- *   1. samples the internal temperature sensor (ADC12_B),
- *   2. shows the rounded whole-degree value on the on-board segment LCD,
- *   3. streams one framed reading over the USB backchannel UART,
+ *   1. samples the internal temperature sensor and the supply-voltage
+ *      monitor (ADC12_B, AVCC/2 on channel A31),
+ *   2. shows the rounded whole-degree temperature on the on-board segment LCD,
+ *   3. streams a framed TEMP and VOLT reading over the USB backchannel UART,
  *   4. toggles the on-board red LED (P1.0) as a heartbeat.
  *
  * No crystal, no timers/LPM — everything runs off the internal DCO (~1 MHz) in
@@ -68,39 +69,61 @@ static void uart_puts(const char *s)
     while (*s) uart_putc(*s++);
 }
 
-// ---------------------------------------------------------------- ADC temp
+// ---------------------------------------------------------------- ADC
+// Two internal channels that need different reference levels:
+//   - temp sensor (A30): 1.2 V ref, to match the factory TLV calibration.
+//   - supply monitor (A31 = AVCC/2): 2.5 V ref, since AVCC/2 (~1.65 V) is above
+//     1.2 V and would saturate. So we pick the reference level per reading.
 static void init_adc(void)
 {
-    // 1.2 V internal reference on for the temperature sensor.
-    { uint16_t to = 0; while ((REFCTL0 & REFGENBUSY) && ++to) ; }  // bounded
-    REFCTL0 = REFVSEL_0 | REFON;
-
     ADC12CTL0 = ADC12SHT0_8 | ADC12ON;      // long sample time, ADC on
     ADC12CTL1 = ADC12SHP;                   // pulse-mode sampling
     ADC12CTL2 = ADC12RES_2;                 // 12-bit resolution
-    ADC12CTL3 = ADC12TCMAP;                 // map temp sensor to channel A30
-    ADC12MCTL0 = ADC12VRSEL_1 | ADC12INCH_30; // VR+ = buffered VREF, temp channel
-
-    __delay_cycles(400);                    // let the reference stabilise
+    ADC12CTL3 = ADC12TCMAP | ADC12BATMAP;   // map temp->A30, AVCC/2->A31
 }
 
-static uint16_t adc_read_raw(void)
+// Select the internal reference level (REFVSEL_0=1.2 V, _1=2.0 V, _2=2.5 V) and
+// let it settle before the next conversion.
+static void ref_use(uint16_t refvsel)
 {
-    ADC12CTL0 |= ADC12ENC | ADC12SC;        // start conversion
     uint16_t to = 0;
+    while ((REFCTL0 & REFGENBUSY) && ++to) ;    // bounded
+    REFCTL0 = refvsel | REFON;
+    __delay_cycles(1000);                        // ~1 ms: let the reference settle
+}
+
+// One 12-bit conversion on the given input channel; buffered VREF as VR+.
+static uint16_t adc_convert(uint16_t inch)
+{
+    uint16_t to = 0;
+    ADC12CTL0 &= ~ADC12ENC;                 // allow the MCTL0 channel change
+    ADC12MCTL0 = ADC12VRSEL_1 | inch;       // VR+ = buffered VREF, VR- = AVSS
+    ADC12CTL0 |= ADC12ENC | ADC12SC;        // start conversion
     while (!(ADC12IFGR0 & ADC12IFG0) && ++to) ;  // bounded: never hang if ADC stalls
     return ADC12MEM0;
 }
 
-// Convert the raw temp-sensor code to °C using the factory calibration.
+// Temperature in tenths of a degree C, via the factory TLV calibration.
 static int read_temp_c_x10(void)
 {
-    int32_t raw = adc_read_raw();
+    int32_t raw, num, den, c_x10;
+    ref_use(REFVSEL_0);                     // 1.2 V ref matches the TLV cal
+    raw = adc_convert(ADC12INCH_30);
     // degC = (raw - cal30) * (85 - 30) / (cal85 - cal30) + 30
-    int32_t num = (raw - (int32_t)CALADC_15V_30C) * (85 - 30);
-    int32_t den = (int32_t)CALADC_15V_85C - (int32_t)CALADC_15V_30C;
-    int32_t c_x10 = (num * 10) / den + 300; // tenths of a degree
+    num = (raw - (int32_t)CALADC_15V_30C) * (85 - 30);
+    den = (int32_t)CALADC_15V_85C - (int32_t)CALADC_15V_30C;
+    c_x10 = (num * 10) / den + 300;         // tenths of a degree
     return (int)c_x10;
+}
+
+// Supply voltage in hundredths of a volt. A31 reads AVCC/2; with the 2.5 V
+// reference, Vcc = 2 * (raw/4095) * 2.5 V = raw * 500 / 4095 (in x100 V).
+static int read_vcc_x100(void)
+{
+    int32_t raw;
+    ref_use(REFVSEL_2);                     // 2.5 V ref (AVCC/2 ~1.65 V fits)
+    raw = adc_convert(ADC12INCH_31);
+    return (int)((raw * 500) / 4095);
 }
 
 // ---------------------------------------------------------------- framing
@@ -117,30 +140,37 @@ static char *put_u(char *p, unsigned v)
     return p;
 }
 
-// Build "$<seq>,TEMP,<value>*<CS>\r\n" and send it.
-static void send_frame(int temp_c_x10)
+// Build "$<seq>,<TAG>,<value>*<CS>\r\n" and send it. `value` is scaled by
+// 10^decimals (decimals is 1 or 2), e.g. 261 with decimals=1 -> "26.1",
+// 330 with decimals=2 -> "3.30".
+static void send_reading(const char *tag, int value, int decimals)
 {
-    char payload[24];
+    char payload[28];
     char *p = payload;
-    int ip = temp_c_x10 / 10;
-    int fp = temp_c_x10 % 10;
-    if (fp < 0) fp = -fp;
+    int scale = (decimals == 2) ? 100 : 10;
+    int neg = value < 0;
+    int av = neg ? -value : value;
+    int ip = av / scale;
+    int fp = av % scale;
+    const char *q;
+    unsigned char cs = 0;
+    static const char hex[] = "0123456789ABCDEF";
 
-    // payload = "<seq>,TEMP,<int>.<tenth>"
+    // payload = "<seq>,<TAG>,<int>.<frac>"
     p = put_u(p, seq);
-    *p++ = ','; *p++ = 'T'; *p++ = 'E'; *p++ = 'M'; *p++ = 'P'; *p++ = ',';
-    if (ip < 0) { *p++ = '-'; ip = -ip; }
+    *p++ = ',';
+    while (*tag) *p++ = (char)*tag++;
+    *p++ = ',';
+    if (neg) *p++ = '-';
     p = put_u(p, (unsigned)ip);
     *p++ = '.';
-    *p++ = (char)('0' + fp);
+    if (decimals == 2) { *p++ = (char)('0' + fp / 10); *p++ = (char)('0' + fp % 10); }
+    else               { *p++ = (char)('0' + fp); }
     *p = '\0';
 
     // XOR checksum over the payload bytes.
-    unsigned char cs = 0;
-    const char *q;
     for (q = payload; *q; ++q) cs ^= (unsigned char)*q;
 
-    static const char hex[] = "0123456789ABCDEF";
     uart_putc('$');
     uart_puts(payload);
     uart_putc('*');
@@ -176,13 +206,16 @@ int main(void)
     LCD_init();
     LCD_clear();
 
-    // Polled loop: heartbeat, sample, update LCD, send a frame, wait ~500 ms.
+    // Polled loop: heartbeat, sample temp + supply voltage, update LCD,
+    // stream a frame for each, then wait ~500 ms.
     for (;;) {
-        int t_x10;
+        int t_x10, v_x100;
         P1OUT ^= BIT0;                      // heartbeat (~1 Hz)
         t_x10 = read_temp_c_x10();
+        v_x100 = read_vcc_x100();
         LCD_showInt((t_x10 + 5) / 10);      // rounded whole degrees
-        send_frame(t_x10);
+        send_reading("TEMP", t_x10, 1);
+        send_reading("VOLT", v_x100, 2);
         __delay_cycles(500000);             // ~0.5 s at ~1 MHz MCLK
     }
 }
