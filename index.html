@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MSP430 Telemetry Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -13,7 +13,8 @@
       <div>
         <p class="eyebrow">Bench node · MSP430FR6989</p>
         <h1>MSP430 Telemetry</h1>
-        <p class="tagline">A little bench rig I wired up: the MSP430 takes its own temperature and supply voltage and sends them up the serial wire to this page, once every half second.</p>
+        <p class="tagline">I had a MSP430 microcontroller from college that I decided to repurpose as a personal project: the MSP430 takes its own temperature and supply voltage and sends them up the serial wire to this page, once every half second.</p>
+        <p class="note">This project aimed to demonstrate skills in C, Python, and web development.</p>
       </div>
       <div class="conn">
         <span class="dot" id="connDot"></span>
@@ -68,7 +69,7 @@
           <label>High <input type="number" id="hiThresh" value="30" step="0.5" /></label>
         </div>
       </div>
-      <canvas id="chart" width="820" height="300" aria-label="Telemetry chart"></canvas>
+      <canvas id="chart" width="820" height="220" aria-label="Telemetry chart"></canvas>
     </section>
 
     <!-- Log --------------------------------------------------------- -->
