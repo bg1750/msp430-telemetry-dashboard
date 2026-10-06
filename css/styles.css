@@ -39,6 +39,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Scale the whole page to 80% so the full dashboard fits on one screen. */
+html { zoom: 0.8; }
+
 .wrap { width: min(900px, 94vw); margin-inline: auto; }
 
 /* ---- Nameplate ---- */

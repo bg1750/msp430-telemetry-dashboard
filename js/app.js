@@ -56,17 +56,17 @@ import { evaluateAlarm } from "./alarm.js";
     try {
       ws = new WebSocket(HOST_WS);
     } catch (e) {
-      log("Could not open WebSocket — start host.py first", "alarm");
+      log("Could not open WebSocket. Start host.py first", "alarm");
       return;
     }
-    ws.onopen = () => { setConnected(true); log("Connected — streaming live telemetry", "ok"); };
+    ws.onopen = () => { setConnected(true); log("Connected, streaming live telemetry", "ok"); };
     ws.onmessage = (ev) => {
       try {
         const r = JSON.parse(ev.data);
         if (typeof r.value === "number") handleReading(r);
       } catch (e) { log("Bad frame from host", "alarm"); }
     };
-    ws.onerror = () => { log("WebSocket error — is host.py running on :8000?", "alarm"); };
+    ws.onerror = () => { log("WebSocket error. Is host.py running on :8000?", "alarm"); };
     ws.onclose = () => { setConnected(false); if (running) log("Host disconnected", ""); };
   }
 
@@ -108,7 +108,7 @@ import { evaluateAlarm } from "./alarm.js";
 
     // only log on state transitions, not every frame
     if (stateNow !== lastAlarm && stateNow !== "ok") {
-      log(label + " — " + v.toFixed(2), stateNow);
+      log(label + ": " + v.toFixed(2), stateNow);
     } else if (stateNow === "ok" && lastAlarm !== "ok") {
       log("Recovered to nominal", "ok");
     }
@@ -133,7 +133,7 @@ import { evaluateAlarm } from "./alarm.js";
     while (logEl.children.length > 50) logEl.lastChild.remove();
   }
   function emptyLog() {
-    logEl.innerHTML = '<li class="log-empty">Nothing logged yet — hit Start.</li>';
+    logEl.innerHTML = '<li class="log-empty">Nothing logged yet. Hit Start.</li>';
   }
 
   /* ---- Events ---- */
